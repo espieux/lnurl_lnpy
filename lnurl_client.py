@@ -1,31 +1,42 @@
 import requests
 from pyln.client import LightningRpc
 
-BASE_URL = "http://127.0.0.1:5000"  # URL for the LNURL server
+BASE_URL = "http://127.0.0.1:5000"
+LIGHTNING_RPC_PATH = "/home/aespieux/.lightning/regtest/lightning-rpc"
 
 def get_client():
-    node = LightningRpc("/home/aespieux/.lightning/regtest/lightning-rpc")
-
-    return node
+    """Get an instance of the LightningRpc client."""
+    try:
+        return LightningRpc(LIGHTNING_RPC_PATH)
+    except Exception as e:
+        print(f"Error connecting to LightningRpc: {e}")
+        raise
 
 def lnurl_channel():
+    """Test LNURL-channel interaction."""
     url = f"{BASE_URL}/lnurl2"
     response = requests.get(url)
     if response.status_code == 200:
+        lnurl_response = response.json()
         client = get_client()
-        # connect
-        res = client.connect(response.json()['uri'])
-        print(res)
-        res = client.getinfo()
-        node_id = res['id']
-        k1 = response.json()['k1']
-        private = 1
-        callback = response.json()['callback']
-        url = f"{BASE_URL}/{callback}?k1={k1}&remote_id={node_id}&private={private}"
-        response = requests.get(url)
-        print(response)
+
+        # Connect to the node
+        uri = lnurl_response['uri']
+        print(f"Connecting to node {uri}...")
+        connect_res = client.connect(uri)
+        print(f"Connection result: {connect_res}")
+
+        # Call the callback to open the channel
+        k1 = lnurl_response['k1']
+        callback = lnurl_response['callback']
+        node_id = client.getinfo()['id']
+        private = 1  # Example: set to 1 for private channel
+
+        print("Calling channel request callback...")
+        response = requests.get(callback, params={"k1": k1, "remote_id": node_id, "private": private})
+        print(f"Channel request response: {response.json()}")
     else:
-        print("Failed to connect to LNURL-pay endpoint.")
+        print("Failed to connect to LNURL2 endpoint.")
 
 def lnurl_pay(amount):
     """Simulate an LNURL-pay interaction."""
@@ -56,8 +67,7 @@ def lnurl_auth():
 
 if __name__ == "__main__":
     # Test each function with sample values
-    lnurl_channel()
-   # lnurl_pay(1000)      # Pay 1000 msats
-   # lnurl_withdraw(5000)  # Withdraw 5000 msats
-   # lnurl_auth()          # Authenticate
-
+    lnurl_channel()  # Test LNURL-channel interaction
+    # lnurl_pay(1000)  # Uncomment to test LNURL-pay
+    # lnurl_withdraw(5000)  # Uncomment to test LNURL-withdraw
+    # lnurl_auth()  # Uncomment to test LNURL-auth
