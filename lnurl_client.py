@@ -1,5 +1,6 @@
 import requests
 from pyln.client import LightningRpc
+import json
 
 BASE_URL = "http://127.0.0.1:5000"
 LIGHTNING_RPC_PATH = "/home/aespieux/.lightning/regtest/lightning-rpc"
@@ -16,25 +17,29 @@ def lnurl_channel():
     """Test LNURL-channel interaction."""
     url = f"{BASE_URL}/lnurl2"
     response = requests.get(url)
+    # print("LNURL2 response:", response.json())
     if response.status_code == 200:
         lnurl_response = response.json()
         client = get_client()
 
         # Connect to the node
         uri = lnurl_response['uri']
-        print(f"Connecting to node {uri}...")
+        # print(f"Connecting to node {uri}...")
         connect_res = client.connect(uri)
-        print(f"Connection result: {connect_res}")
+        # print(f"Connection result: {connect_res}")
 
         # Call the callback to open the channel
         k1 = lnurl_response['k1']
         callback = lnurl_response['callback']
+        amount = 1_000_000  # Example: 1,000,000 msatoshis
         node_id = client.getinfo()['id']
         private = 1  # Example: set to 1 for private channel
 
+        url= f"{BASE_URL}/{callback}?amount={amount}&k1={k1}&remote_id={node_id}&private={private}"
+
         print("Calling channel request callback...")
-        response = requests.get(callback, params={"k1": k1, "remote_id": node_id, "private": private})
-        print(f"Channel request response: {response.json()}")
+        response = requests.get(url).json()
+        print(f"Channel request response:\n{json.dumps(response, indent=4)}")
     else:
         print("Failed to connect to LNURL2 endpoint.")
 
