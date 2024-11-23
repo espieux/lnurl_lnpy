@@ -1,2 +1,2 @@
-Implémenter lnurl pay
-Voir cours derniere fois pour debut de reponse
+Implémenter lnurl channel ✅
+Implémenter lnurl pay ✅

@@ -1,7 +1,10 @@
 from flask import Flask, jsonify, request
 from pyln.client import LightningRpc
+from hashlib import sha256
 import logging
 import os
+from datetime import datetime
+import uuid
 
 app = Flask(__name__)
 
@@ -15,6 +18,8 @@ logger.addHandler(file_handler)
 # Core Lightning node configuration
 LIGHTNING_RPC_PATH = "/home/aespieux/.lightning2/regtest/lightning-rpc"
 BASE_URL = "http://127.0.0.1:5000"
+METADATA_PLAIN = "Payment for services"
+METADATA = f"""[["text/plain","{METADATA_PLAIN}"]]"""
 
 def get_client():
     logger.info("Getting an instance of the LightningRpc client...")
@@ -43,13 +48,20 @@ def get_callback(tag):
     """Generate callback URLs."""
     if tag == "channelRequest":
         return f"lnurl-channel-request"
+    elif tag == "payRequest":
+        return f"lnurl-pay"
 
 def generate_invoice(amount):
     logger.info(f"Generating an invoice for {amount} millisatoshis...")
     """Generate a real invoice from the Core Lightning node."""
     node = get_client()
     try:
-        invoice = node.invoice(amount, "test", "test")
+        # Create a unique label for the invoice
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        unique_id = uuid.uuid4().hex[:8]  # Short unique ID
+        label = f"invoice_{timestamp}_{unique_id}"
+        invoice = node.invoice(amount, f"{label}", f"{sha256(METADATA.encode("utf-8")).hexdigest()}")
+        logger.info(f"Generated invoice: {invoice}")
         return invoice
     except Exception as e:
         logger.error(f"Error generating invoice: {e}")
@@ -94,23 +106,40 @@ def lnurl_channel():
         return jsonify({"status": "ERROR", "reason": str(e)}), 500
 
 @app.route("/lnurl-pay", methods=["GET"])
-def lnurl_pay():
+def lnurl_answer_pay():
     logger.info("Handling LNURL-pay requests...")
     """LNURL-pay endpoint to generate invoices."""
-    amount = int(request.args.get("amount", 1000))  # Amount in millisatoshis
-    invoice = generate_invoice(amount)
-    if invoice:
+    try:
+        amount = int(request.args.get("amount"))  # Amount in millisatoshis
+        invoice = generate_invoice(amount)
+        bolt11 = invoice['bolt11']
+        # logger.info(f"Generated invoice: {invoice}")
         return jsonify({
-            "status": "OK",
-            "tag": "payRequest",
-            "callback": request.url,
-            "minSendable": 1000,
-            "maxSendable": 100000,
-            "metadata": "Sample LNURL-pay metadata",
-            "invoice": invoice["bolt11"]  # Get the BOLT11 invoice string
+            "pr": f"{bolt11}",
+            "routes": [],
         })
-    else:
-        return jsonify({"status": "ERROR", "reason": "Failed to generate invoice"}), 500
+    except Exception as e:
+        logger.error(f"Error in lnurl-pay: {e}")
+        return jsonify({"status": "ERROR", "reason": f"{e}"}), 500
+    
+@app.route("/lnurl3", methods=["GET"])
+def lnurl_pay():
+    logger.info("Handling LNURL3 requests...")
+    """LNURL3 endpoint to pay invoices."""
+    try:
+        tag = "payRequest"
+        callback = get_callback(tag)
+        max_sendable = 1_000_000
+        min_sendable = 1_000
+        return jsonify({
+            "callback": callback,
+            "maxSendable": max_sendable,
+            "minSendable": min_sendable,
+            "metadata": METADATA,
+            "tag": tag,
+        })
+    except Exception as e:
+        return jsonify({"status": "ERROR", "reason": str(e)}), 500
 
 if __name__ == "__main__":
     logger.info("Starting LNURL server...")
