@@ -17,7 +17,6 @@ logger.addHandler(file_handler)
 
 # Core Lightning node configuration
 LIGHTNING_RPC_PATH = "/home/aespieux/.lightning2/regtest/lightning-rpc"
-BASE_URL = "http://127.0.0.1:5000"
 METADATA_PLAIN = "Payment for services"
 METADATA = f"""[["text/plain","{METADATA_PLAIN}"]]"""
 
@@ -122,7 +121,7 @@ def lnurl_answer_pay():
         logger.error(f"Error in lnurl-pay: {e}")
         return jsonify({"status": "ERROR", "reason": f"{e}"}), 500
     
-@app.route("/lnurl3", methods=["GET"])
+@app.route("/lnurl6", methods=["GET"])
 def lnurl_pay():
     logger.info("Handling LNURL3 requests...")
     """LNURL3 endpoint to pay invoices."""
@@ -138,6 +137,16 @@ def lnurl_pay():
             "metadata": METADATA,
             "tag": tag,
         })
+    except Exception as e:
+        return jsonify({"status": "ERROR", "reason": str(e)}), 500
+    
+@app.route("/.well-known/lnurlp/sosthene", methods=["GET"])
+def lnurlp():
+    logger.info("Handling LNURLp requests...")
+    """LNURLp endpoint to pay invoices."""
+    try:
+        with open("/home/aespieux/.well-known/lnurlp/sosthene", "r") as f:
+            return jsonify(f.read()), 200
     except Exception as e:
         return jsonify({"status": "ERROR", "reason": str(e)}), 500
 

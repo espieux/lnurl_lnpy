@@ -3,7 +3,8 @@ from hashlib import sha256
 from pyln.client import LightningRpc
 import json
 
-BASE_URL = "http://127.0.0.1:5000"
+# BASE_URL = "http://127.0.0.1:5000"
+BASE_URL = "http://192.168.0.239:5000"
 LIGHTNING_RPC_PATH = "/home/aespieux/.lightning/regtest/lightning-rpc"
 
 def get_client():
@@ -88,7 +89,7 @@ def lnurl_channel():
 
 def lnurl_pay(amount):
     """Simulate an LNURL-pay interaction."""
-    url = f"{BASE_URL}/lnurl3"
+    url = f"{BASE_URL}/lnurl6"
     response = requests.get(url)
     if response.status_code != 200:
         print("Failed to connect to LNURL-pay endpoint.")
@@ -166,9 +167,23 @@ def lnurl_auth():
     else:
         print("Failed to connect to LNURL-auth endpoint.")
 
+def lnurl_static(static):
+    """Simulate an LNURL-static interaction."""
+    res=static.split("@")
+    username=res[0]
+    host=res[1]
+    url = f"{BASE_URL}/.well-known/lnurlp/{username}"
+    response = requests.get(url)
+    print("LNURL-static response:", response.json())
+    if response.status_code == 200:
+        print("LNURL-static response:", response)
+    else:
+        print("Failed to connect to LNURL-static endpoint.")
+
 if __name__ == "__main__":
     # Test each function with sample values
     # lnurl_channel()  # Test LNURL-channel interaction
-    lnurl_pay(2500)  # Uncomment to test LNURL-pay
+    # lnurl_pay(2500)  # Uncomment to test LNURL-pay
     # lnurl_withdraw(5000)  # Uncomment to test LNURL-withdraw
     # lnurl_auth()  # Uncomment to test LNURL-auth
+    lnurl_static("sosthene@sosthene.wtf")  # Test LNURL-static interaction
